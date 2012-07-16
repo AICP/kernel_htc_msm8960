@@ -313,30 +313,31 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 static void hci_uart_tty_close(struct tty_struct *tty)
 {
 	struct hci_uart *hu = (void *)tty->disc_data;
+	struct hci_dev *hdev;
 
 	BT_DBG("tty %p", tty);
 
 	/* Detach from the tty */
 	tty->disc_data = NULL;
 
-	if (hu) {
-		struct hci_dev *hdev = hu->hdev;
+	if (!hu)
+		return;
 
-		if (hdev)
-			hci_uart_close(hdev);
+	hdev = hu->hdev;
+	if (hdev)
+		hci_uart_close(hdev);
 
-		cancel_work_sync(&hu->write_work);
+	cancel_work_sync(&hu->write_work);
 
-		cancel_work_sync(&hu->write_work);
-
-		if (test_and_clear_bit(HCI_UART_PROTO_SET, &hu->flags)) {
-			hu->proto->close(hu);
-			if (hdev) {
-				hci_unregister_dev(hdev);
-				hci_free_dev(hdev);
-			}
+	if (test_and_clear_bit(HCI_UART_PROTO_SET, &hu->flags)) {
+		if (hdev) {
+			hci_unregister_dev(hdev);
+			hci_free_dev(hdev);
 		}
+		hu->proto->close(hu);
 	}
+
+	kfree(hu);
 }
 
 /* hci_uart_tty_wakeup()

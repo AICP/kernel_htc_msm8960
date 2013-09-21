@@ -5076,9 +5076,11 @@ static const struct v4l2_ioctl_ops iris_ioctl_ops = {
 };
 
 static int is_initialized = 0;
-static int video_open(struct file *file) {
+static int video_open(struct file *file)
+{
 	int retval;
-	if(!is_initialized) {
+
+	if (!is_initialized) {
 		retval = hci_fm_smd_register();
 		if (retval) {
 			FMDERR(": hci_fm_smd_register failed\n");
@@ -5094,7 +5096,7 @@ static const struct v4l2_file_operations iris_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = video_ioctl2,
 	.release        = iris_fops_release,
-	.open = video_open,
+	.open           = video_open,
 };
 
 static struct video_device iris_viddev_template = {

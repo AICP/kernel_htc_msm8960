@@ -197,6 +197,7 @@ static void radio_hci_smd_deregister(void)
 	hs.fm_channel = 0;
 }
 
+#ifdef MODULE
 static int __init radio_hci_smd_init(void)
 {
 	return radio_hci_smd_register_dev(&hs);
@@ -218,6 +219,26 @@ int hci_fm_smd_register(void) {
 	return radio_hci_smd_register_dev(&hs);
 }
 void hci_fm_smd_deregister(void) {
+	radio_hci_smd_deregister();
+}
+#endif
+
+int hci_fm_smd_register(void)
+{
+	return 0;
+}
+
+void hci_fm_smd_deregister(void)
+{
+}
+#else
+int hci_fm_smd_register(void)
+{
+	return radio_hci_smd_register_dev(&hs);
+}
+
+void hci_fm_smd_deregister(void)
+{
 	radio_hci_smd_deregister();
 }
 #endif

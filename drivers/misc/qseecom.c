@@ -202,7 +202,6 @@ struct qseecom_control {
 	struct device *pdev;
 	struct cdev cdev;
 
-	bool uclient_shutdown_app;
 };
 
 struct qseecom_client_handle {
@@ -854,7 +853,7 @@ static int qseecom_unmap_ion_allocated_memory(struct qseecom_dev_handle *data)
 }
 
 static int qseecom_unload_app(struct qseecom_dev_handle *data,
-				bool uclient_release)
+				bool app_crash)
 {
 	unsigned long flags;
 	unsigned long flags1;
@@ -875,22 +874,22 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
 								list) {
 			if (ptr_app->app_id == data->client.app_id) {
-				found_app = true;
-				if ((uclient_release) &&
-					(!qseecom.uclient_shutdown_app)) {
-					ptr_app->ref_cnt = 0;
-					unload = true;
-					break;
-				} else {
-					if (ptr_app->ref_cnt == 1) {
+				if (!memcmp((void *)ptr_app->app_name,
+					(void *)data->client.app_name,
+					strlen(data->client.app_name))) {
+					found_app = true;
+					if (app_crash) {
 						unload = true;
 						break;
 					} else {
-						ptr_app->ref_cnt--;
-						pr_debug("Can't unload app(%d) inuse\n",
-							ptr_app->app_id);
-						break;
+						if (ptr_app->ref_cnt == 1) {
+							unload = true;
+							break;
+						}
 					}
+				} else {
+					found_dead_app = true;
+					break;
 				}
 			}
 		}
@@ -2240,7 +2239,6 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		pr_debug("UNLOAD_APP: qseecom_addr = 0x%x\n", (u32)data);
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
-		qseecom.uclient_shutdown_app = true;
 		ret = qseecom_unload_app(data, false);
 		atomic_dec(&data->ioctl_count);
 		mutex_unlock(&app_access_lock);
@@ -2394,7 +2392,6 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			kfree(data);
 			return ret;
 		}
-		qseecom.uclient_shutdown_app = false;
 	}
 	if (qseecom.qseos_version == QSEOS_VERSION_13) {
 		mutex_lock(&pil_access_lock);

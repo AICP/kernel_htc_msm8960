@@ -697,7 +697,7 @@ __SYSCALL(__NR_seccomp, sys_seccomp)
 __SYSCALL(__NR_getrandom, sys_getrandom)
 
 #undef __NR_syscalls
-#define __NR_syscalls 272
+#define __NR_syscalls 278
 
 /*
  * All syscalls below here should go away really,

@@ -187,5 +187,10 @@ enum {
 
 extern uint8_t touchscreen_is_on(void); 
 extern uint8_t getPowerKeyState(void);
+
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
+extern void tap2wake_setdev(struct input_dev * input_device);
+#endif
+
 #endif /* CONFIG_TOUCHSCREEN_SYNAPTICS_3K */
 #endif /* _LINUX_SYNAPTICS_I2C_RMI_H */

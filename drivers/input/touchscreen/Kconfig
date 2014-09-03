@@ -1039,6 +1039,11 @@ config TOUCHSCREEN_SYNAPTICS_3K
 	help
 	  This enables support for Synaptics RMI4 over I2C based touchscreens.
 
+config TOUCHSCREEN_SYNAPTICS_TAP2WAKE
+	bool "Double tap to wake for Synaptics 3K i2c touchscreen"
+	depends on TOUCHSCREEN_SYNAPTICS_3K
+	default n
+
 config TOUCHSCREEN_SYNAPTICS_REMOVE_FW_TIMEOUT
 	default n
 	depends on TOUCHSCREEN_SYNAPTICS_3K

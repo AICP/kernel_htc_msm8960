@@ -201,7 +201,7 @@ static void syn_handle_block_touch(struct synaptics_ts_data *ts, int enable)
 
 static bool scr_suspended = false;
 static int button_id = 0;
-static int l2m_switch = 0;
+static int l2m_switch = 1;
 static unsigned long l2m_time[2] = {0, 0};
 static int vib_strength = 15;
 static int break_longtap_count = 0;

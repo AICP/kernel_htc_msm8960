@@ -166,10 +166,8 @@ the appropriate macros. */
 #define MSG_SSID_21_LAST		10300
 #define MSG_SSID_22			10350
 #define MSG_SSID_22_LAST		10377
-#define MSG_SSID_23			10400
-#define MSG_SSID_23_LAST		10414
-#define MSG_SSID_24			0xC000
-#define MSG_SSID_24_LAST		0xC063
+#define MSG_SSID_23			0xC000
+#define MSG_SSID_23_LAST		0xC063
 
 struct diagpkt_delay_params {
 	void *rsp_ptr;
@@ -720,24 +718,6 @@ static const uint32_t msg_bld_masks_22[] = {
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW
-};
-
-static const uint32_t msg_bld_masks_23[] = {
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,

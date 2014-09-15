@@ -2918,7 +2918,11 @@ static struct platform_device m4_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
 	.id	= -1,
 	.dev	= {
-	.platform_data = &m4_rpm_regulator_pdata,
+#ifndef MSM8930_PHASE_2
+		.platform_data = &msm_rpm_regulator_pdata,
+#else
+		.platform_data = &m4_rpm_regulator_pdata,
+#endif
 	},
 };
 

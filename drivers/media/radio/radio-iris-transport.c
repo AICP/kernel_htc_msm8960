@@ -223,6 +223,26 @@ void hci_fm_smd_deregister(void) {
 }
 #endif
 
+int hci_fm_smd_register(void)
+{
+	return 0;
+}
+
+void hci_fm_smd_deregister(void)
+{
+}
+#else
+int hci_fm_smd_register(void)
+{
+	return radio_hci_smd_register_dev(&hs);
+}
+
+void hci_fm_smd_deregister(void)
+{
+	radio_hci_smd_deregister();
+}
+#endif
+
 MODULE_DESCRIPTION("Bluetooth SMD driver");
 MODULE_AUTHOR("Ankur Nandwani <ankurn@codeaurora.org>");
 MODULE_LICENSE("GPL v2");

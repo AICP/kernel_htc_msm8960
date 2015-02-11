@@ -2043,11 +2043,11 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 			params->params.passive_time = FIRST_SCAN_PASSIVE_DWELL_TIME_MS;
 		}
 #endif 
-		if (mIs_screen_off) {
-			printf("Is Screen Off Scan");
-			params->params.active_time = 20;
-			params->params.passive_time = 40;
-		}
+        if (mIs_screen_off) {
+            printf("Is Screen Off Scan");
+            params->params.active_time = 20;
+            params->params.passive_time = 40;
+        }
 		params->version = htod32(ESCAN_REQ_VERSION);
 		params->action =  htod16(action);
 		wl_escan_set_sync_id(params->sync_id, wl);
@@ -7024,9 +7024,11 @@ wl_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *dev,
 			if (err)
 				WL_ERR(("%s fail to set maxassoc, err=(%d)\n", __func__, err));
 			
-			bcm_mkiovar("prslmt", (char *)&prslmt, 4, wl->ioctl_buf, WLC_IOCTL_MAXLEN);
-			if ((err = wldev_ioctl(dev, WLC_SET_VAR, wl->ioctl_buf, WLC_IOCTL_MAXLEN, TRUE)) < 0)
-				WL_ERR(("%s set probe response limit for HostAPD failed %d\n", __FUNCTION__, err));
+
+            
+            bcm_mkiovar("prslmt", (char *)&prslmt, 4, wl->ioctl_buf, WLC_IOCTL_MAXLEN);
+            if ((err = wldev_ioctl(dev, WLC_SET_VAR, wl->ioctl_buf, WLC_IOCTL_MAXLEN, TRUE)) < 0)
+                 WL_ERR(("%s set probe response limit for HostAPD failed %d\n", __FUNCTION__, err));
 
 			memset(&join_params, 0, sizeof(join_params));
 			

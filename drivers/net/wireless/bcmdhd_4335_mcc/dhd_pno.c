@@ -552,7 +552,7 @@ exit:
 		DHD_PNO(("%s", RESULTS_END_MARKER));
 		DHD_PNO(("%s : Getting the batching data is complete\n", __FUNCTION__));
 	}
-	DHD_PNO(("batch scan results is [%s]\n", buf));
+       DHD_PNO(("batch scan results is [%s]\n", buf));
 	
 	bytes_written = (int32)(bp - buf);
 	return bytes_written;
@@ -985,6 +985,7 @@ dhd_pno_set_for_batch(dhd_pub_t *dhd, struct dhd_pno_batch_params *batch_params)
 			goto exit;
 		}
 	} else {
+		
 		return -EBUSY;
 	}
 	_params->params_batch.scan_fr = batch_params->scan_fr;
@@ -1328,10 +1329,10 @@ _dhd_pno_get_for_batch(dhd_pub_t *dhd, char *buf, int bufsize, int reason)
 			_params->params_batch.get_batch.tot_scan_cnt = 0;
 		}
 convert_format:
-		err = _dhd_pno_convert_format(dhd, &_params->params_batch, buf, bufsize);
-		if (err < 0) {
-			DHD_ERROR(("failed to convert the data into upper layer format\n"));
-			goto exit;
+        err = _dhd_pno_convert_format(dhd, &_params->params_batch, buf, bufsize);
+        if (err < 0) {
+            DHD_ERROR(("failed to convert the data into upper layer format\n"));
+            goto exit;
 		}
 	}
 exit:
@@ -1340,12 +1341,12 @@ exit:
 	if(_params){
 		_params->params_batch.get_batch.buf = NULL;
 		_params->params_batch.get_batch.bufsize = 0;
-		_params->params_batch.get_batch.bytes_written = err;
-	}
+        _params->params_batch.get_batch.bytes_written = err;
+    }
 	mutex_unlock(&_pno_state->pno_mutex);
-	if (waitqueue_active(&_pno_state->get_batch_done.wait))
-		complete(&_pno_state->get_batch_done);
-	DHD_PNO(("%s return\n", __FUNCTION__));
+    if (waitqueue_active(&_pno_state->get_batch_done.wait))
+        complete(&_pno_state->get_batch_done);
+        DHD_PNO(("%s return\n", __FUNCTION__));
 	return err;
 }
 static void
@@ -1405,7 +1406,7 @@ dhd_pno_get_for_batch(dhd_pub_t *dhd, char *buf, int bufsize, int reason)
 	wait_for_completion(&_pno_state->get_batch_done);
 	err = params_batch->get_batch.bytes_written;
 exit:
-	DHD_PNO(("%s return\n", __FUNCTION__));
+    DHD_PNO(("%s return\n", __FUNCTION__));
 	return err;
 }
 
@@ -1845,7 +1846,7 @@ int dhd_pno_deinit(dhd_pub_t *dhd)
 	DHD_PNO(("%s enter\n", __FUNCTION__));
 	_pno_state = PNO_GET_PNOSTATE(dhd);
 	NULL_CHECK(_pno_state, "pno_state is NULL", err);
-
+	
 	if (_pno_state->pno_mode & DHD_PNO_LEGACY_MODE) {
 		_params = &_pno_state->pno_params_arr[INDEX_OF_LEGACY_PARAMS];
 		_dhd_pno_reinitialize_prof(dhd, _params, DHD_PNO_LEGACY_MODE);
@@ -1853,7 +1854,7 @@ int dhd_pno_deinit(dhd_pub_t *dhd)
 
 	if (_pno_state->pno_mode & DHD_PNO_BATCH_MODE) {
 		_params = &_pno_state->pno_params_arr[INDEX_OF_BATCH_PARAMS];
-
+		
 		_dhd_pno_reinitialize_prof(dhd, _params, DHD_PNO_BATCH_MODE);
 	}
 	cancel_work_sync(&_pno_state->work);

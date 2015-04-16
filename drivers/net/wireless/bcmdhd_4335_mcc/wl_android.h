@@ -28,9 +28,6 @@
 #include <linux/netdevice.h>
 #include <wldev_common.h>
 
-/* If any feature uses the Generic Netlink Interface, put it here to enable WL_GENL
- * automatically
- */
 #ifdef WL_SDO
 #define WL_GENL
 #endif
@@ -40,16 +37,7 @@
 #include <net/genetlink.h>
 #endif
 
-/**
- * Android platform dependent functions, feel free to add Android specific functions here
- * (save the macros in dhd). Please do NOT declare functions that are NOT exposed to dhd
- * or cfg, define them as static in wl_android.c
- */
 
-/**
- * wl_android_init will be called from module init function (dhd_module_init now), similarly
- * wl_android_exit will be called from module exit function (dhd_module_cleanup now)
- */
 int wl_android_init(void);
 int wl_android_exit(void);
 void wl_android_post_init(void);
@@ -66,7 +54,7 @@ int wifi_get_irq_number(unsigned long *irq_flags_ptr);
 int wifi_set_power(int on, unsigned long msec);
 int wifi_get_mac_addr(unsigned char *buf);
 void *wifi_get_country_code(char *ccode);
-#endif /* CONFIG_WIFI_CONTROL_FUNC */
+#endif 
 
 #ifdef WL_GENL
 typedef struct bcm_event_hdr {
@@ -74,10 +62,6 @@ typedef struct bcm_event_hdr {
 	u16 len;
 } bcm_event_hdr_t;
 
-/* attributes (variables): the index in this enum is used as a reference for the type,
- *             userspace application has to indicate the corresponding type
- *             the policy is used for security considerations
- */
 enum {
 	BCM_GENL_ATTR_UNSPEC,
 	BCM_GENL_ATTR_STRING,
@@ -86,9 +70,6 @@ enum {
 };
 #define BCM_GENL_ATTR_MAX (__BCM_GENL_ATTR_MAX - 1)
 
-/* commands: enumeration of all commands (functions),
- * used by userspace application to identify command to be ececuted
- */
 enum {
 	BCM_GENL_CMD_UNSPEC,
 	BCM_GENL_CMD_MSG,
@@ -96,7 +77,6 @@ enum {
 };
 #define BCM_GENL_CMD_MAX (__BCM_GENL_CMD_MAX - 1)
 
-/* Enum values used by the BCM supplicant to identify the events */
 enum {
 	BCM_E_UNSPEC,
 	BCM_E_SVC_FOUND,
@@ -107,4 +87,4 @@ enum {
 
 s32 wl_genl_send_msg(struct net_device *ndev, u32 event_type,
 	u8 *string, u16 len, u8 *hdr, u16 hdrlen);
-#endif /* WL_GENL */
+#endif 

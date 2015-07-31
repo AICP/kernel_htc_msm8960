@@ -218,6 +218,14 @@ extern void tap2wake_setdev(struct input_dev * input_device)
 }
 EXPORT_SYMBOL(tap2wake_setdev);
 
+extern uint8_t touchscreen_is_on(void)
+{
+	if (scr_suspended == false) {
+		return 1;
+	}
+	return 0;
+}
+
 static void tap2wake_presspwr(struct work_struct * tap2wake_presspwr_work)
 {
 	if (tap2wake_pwrdev == NULL) {

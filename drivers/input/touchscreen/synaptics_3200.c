@@ -189,6 +189,76 @@ static void syn_handle_block_touch(struct synaptics_ts_data *ts, int enable)
 	}
 }
 
+
+#ifndef CONFIG_TOUCHSCREEN_SYNAPTICS_LOGO2MENU
+  #ifndef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
+    #define HAS_LOGO2MENU_OR_TAP2WAKE 0
+  #endif
+#endif  
+
+#ifndef HAS_LOGO2MENU_OR_TAP2WAKE
+  #define HAS_LOGO2MENU_OR_TAP2WAKE 1
+#endif
+
+#if HAS_LOGO2MENU_OR_TAP2WAKE
+static bool scr_suspended = false;
+static int last_touch_position_x = 0;
+static int last_touch_position_y = 0;
+
+extern uint8_t touchscreen_is_on(void)
+{
+	if (scr_suspended == false) {
+		return 1;
+	}
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_LOGO2MENU
+#define L2M_TIMEOUT 30
+static int l2m_switch = 1;
+
+static void logo2menu_pressmenu(struct work_struct * logo2menu_pressmenu_work) {
+  struct synaptics_ts_data *ts = gl_ts;
+
+  input_event(ts->input_dev, EV_KEY, KEY_MENU, 1);
+  input_sync(ts->input_dev);
+  msleep(60);
+  input_event(ts->input_dev, EV_KEY, KEY_MENU, 0);
+  input_sync(ts->input_dev);
+  msleep(60);
+  return;
+}
+
+static DECLARE_WORK(logo2menu_pressmenu_work, logo2menu_pressmenu); 
+
+void logo2menu_menutrigger(void) {
+  schedule_work(&logo2menu_pressmenu_work);
+  return;
+} 
+
+
+static void logo2menu_func(void) {
+
+  if (l2m_switch && !scr_suspended) {
+    pr_debug("[L2M]: menu button activated\n");
+    logo2menu_menutrigger();
+  } 
+
+  return;
+}
+
+
+static int report_htc_logo_area(int x, int y) {
+  if (l2m_switch && (last_touch_position_x > 620) && (last_touch_position_x < 1150) && (last_touch_position_y > 2835)) {
+    return 1;
+  }
+  return 0;
+}
+
+#endif
+
+
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
 
 #define T2W_TIMEOUT_PWR 70
@@ -204,7 +274,6 @@ static void syn_handle_block_touch(struct synaptics_ts_data *ts, int enable)
 # define T2W_DELTA 120
 #endif
 
-static bool scr_suspended = false;
 static int t2w_switch = 0; // 0=disabled, 1=double-tap2wake
 static unsigned long pwrtrigger_time[2] = {0, 0};
 
@@ -217,14 +286,6 @@ extern void tap2wake_setdev(struct input_dev * input_device)
 	return;
 }
 EXPORT_SYMBOL(tap2wake_setdev);
-
-extern uint8_t touchscreen_is_on(void)
-{
-	if (scr_suspended == false) {
-		return 1;
-	}
-	return 0;
-}
 
 static void tap2wake_presspwr(struct work_struct * tap2wake_presspwr_work)
 {
@@ -276,9 +337,6 @@ static int __init get_t2w_opt(char *t2w)
 }
 
 __setup("t2w=", get_t2w_opt);
-
-static int last_touch_position_x = 0;
-static int last_touch_position_y = 0;
 
 static cputime64_t prev_time = 0;
 static int prev_x = 0, prev_y = 0;
@@ -1835,6 +1893,29 @@ static DEVICE_ATTR(reset, (S_IWUSR),
 
 #endif
 
+
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_LOGO2MENU
+static ssize_t synaptics_logo2menu_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+	count += sprintf(buf, "%d\n", l2m_switch);
+	return count;
+}
+
+static ssize_t synaptics_logo2menu_dump(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] >= '0' && buf[0] <= '1' && buf[1] == '\n')
+	if (l2m_switch != buf[0] - '0') {
+		l2m_switch = buf[0] - '0';
+	}
+	return count;
+}
+
+static DEVICE_ATTR(logo2menu, (S_IWUSR|S_IRUGO),
+	synaptics_logo2menu_show, synaptics_logo2menu_dump); 
+#endif
+
+
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
 static ssize_t synaptics_tap2wake_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -2042,6 +2123,14 @@ static int synaptics_touch_sysfs_init(void)
 			sysfs_create_file(android_touch_kobj, &dev_attr_disable_cbc.attr))
 			return -ENOMEM;
 
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_LOGO2MENU
+	ret = sysfs_create_file(android_touch_kobj, &dev_attr_logo2menu.attr);
+	if (ret) {
+		printk(KERN_ERR "%s: sysfs_create_file failed\n", __func__);
+		return ret;
+	} 
+#endif
+
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
 	ret = sysfs_create_file(android_touch_kobj, &dev_attr_tap_to_wake.attr);
 	if (ret) {
@@ -2095,7 +2184,10 @@ static void synaptics_touch_sysfs_remove(void)
 	sysfs_remove_file(android_touch_kobj, &dev_attr_pdt.attr);
 	sysfs_remove_file(android_touch_kobj, &dev_attr_htc_event.attr);
 	sysfs_remove_file(android_touch_kobj, &dev_attr_reset.attr);
-	sysfs_remove_file(android_touch_kobj, &dev_attr_sr_en.attr);
+	sysfs_remove_file(android_touch_kobj, &dev_attr_sr_en.attr);  
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_LOGO2MENU
+	sysfs_remove_file(android_touch_kobj, &dev_attr_logo2menu.attr);
+#endif
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
 	sysfs_remove_file(android_touch_kobj, &dev_attr_tap_to_wake.attr);
 #endif
@@ -2374,7 +2466,16 @@ static void synaptics_ts_finger_func(struct synaptics_ts_data *ts)
 		if (t2w_switch == 1 && scr_suspended && ts->finger_count == 0) {
 			t2w_func(last_touch_position_x, last_touch_position_y, ktime_to_ms(ktime_get()));
 		}
+#endif   
+
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_LOGO2MENU
+		if (l2m_switch && !scr_suspended && (ts->finger_count == 0)) { 
+			if (report_htc_logo_area(last_touch_position_x,last_touch_position_x)) {
+				logo2menu_func();
+			}
+		}
 #endif
+
 		if (ts->pre_finger_data[0][0] < 2 || finger_pressed) {
 			if (ts->package_id < 3400)
 				base = (ts->finger_support + 3) / 4;
@@ -2464,7 +2565,7 @@ static void synaptics_ts_finger_func(struct synaptics_ts_data *ts)
 					if ((finger_pressed & BIT(i)) == BIT(i)) {
 						if (ts->block_touch_event == 0) {
 							if (ts->htc_event == SYN_AND_REPORT_TYPE_A) {
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
+#ifdef HAS_LOGO2MENU_OR_TAP2WAKE
 								last_touch_position_x = finger_data[i][0];
 								last_touch_position_y = finger_data[i][1];
 
@@ -2493,7 +2594,7 @@ static void synaptics_ts_finger_func(struct synaptics_ts_data *ts)
 									finger_data[i][1]);
 								input_mt_sync(ts->input_dev);
 							} else if (ts->htc_event == SYN_AND_REPORT_TYPE_B) {
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
+#ifdef HAS_LOGO2MENU_OR_TAP2WAKE
 								last_touch_position_x = finger_data[i][0];
 								last_touch_position_y = finger_data[i][1];
 								if (scr_suspended == true) {
@@ -2522,7 +2623,7 @@ static void synaptics_ts_finger_func(struct synaptics_ts_data *ts)
 								input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,
 									finger_data[i][1]);
 							} else if (ts->htc_event == SYN_AND_REPORT_TYPE_HTC) {
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
+#ifdef HAS_LOGO2MENU_OR_TAP2WAKE
 								last_touch_position_x = finger_data[i][0];
 								last_touch_position_y = finger_data[i][1];
 								if (scr_suspended == true) {
@@ -2710,7 +2811,7 @@ static void synaptics_ts_button_func(struct synaptics_ts_data *ts)
 		data == 0x04 ? pr_info("[TP] app key pressed , vk=%x\n", data) :
 		pr_info("[TP] vk=%#x\n", data);
 
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
+#ifdef HAS_LOGO2MENU_OR_TAP2WAKE
 		if (data == 0x01 || data == 0x02 || data == 0x04) {
 			last_touch_position_x = 0;
 			last_touch_position_y = 0;
@@ -2742,7 +2843,7 @@ static void synaptics_ts_button_func(struct synaptics_ts_data *ts)
 		case SYN_AND_REPORT_TYPE_B:
 			break;
 		}
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_TAP2WAKE
+#ifdef HAS_LOGO2MENU_OR_TAP2WAKE
 		}
 #endif
 	} else {

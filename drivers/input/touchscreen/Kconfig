@@ -1052,4 +1052,9 @@ config TOUCHSCREEN_SYNAPTICS_TAP2WAKE
 	depends on TOUCHSCREEN_SYNAPTICS_3K
 	default n
 
+config TOUCHSCREEN_SYNAPTICS_LOGO2MENU
+	bool "Press the logo to activate the menu for Synaptics 3K i2c touchscreen"
+	depends on TOUCHSCREEN_SYNAPTICS_3K
+	default n
+
 endif

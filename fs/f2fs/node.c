@@ -195,23 +195,6 @@ static unsigned int __gang_lookup_nat_set(struct f2fs_nm_info *nm_i,
 							start, nr);
 }
 
-int need_dentry_mark(struct f2fs_sb_info *sbi, nid_t nid)
-{
-	struct f2fs_nm_info *nm_i = NM_I(sbi);
-	struct nat_entry *e;
-	bool need = false;
-
-	down_read(&nm_i->nat_tree_lock);
-	e = __lookup_nat_cache(nm_i, nid);
-	if (e) {
-		if (!get_nat_flag(e, IS_CHECKPOINTED) &&
-				!get_nat_flag(e, HAS_FSYNCED_INODE))
-			need = true;
-	}
-	up_read(&nm_i->nat_tree_lock);
-	return need;
-}
-
 bool is_checkpointed_node(struct f2fs_sb_info *sbi, nid_t nid)
 {
 	struct f2fs_nm_info *nm_i = NM_I(sbi);
@@ -224,6 +207,20 @@ bool is_checkpointed_node(struct f2fs_sb_info *sbi, nid_t nid)
 		is_cp = false;
 	up_read(&nm_i->nat_tree_lock);
 	return is_cp;
+}
+
+bool has_fsynced_inode(struct f2fs_sb_info *sbi, nid_t ino)
+{
+	struct f2fs_nm_info *nm_i = NM_I(sbi);
+	struct nat_entry *e;
+	bool fsynced = false;
+
+	down_read(&nm_i->nat_tree_lock);
+	e = __lookup_nat_cache(nm_i, ino);
+	if (e && get_nat_flag(e, HAS_FSYNCED_INODE))
+		fsynced = true;
+	up_read(&nm_i->nat_tree_lock);
+	return fsynced;
 }
 
 bool need_inode_block_update(struct f2fs_sb_info *sbi, nid_t ino)
@@ -315,8 +312,7 @@ static void set_node_addr(struct f2fs_sb_info *sbi, struct node_info *ni,
 	__set_nat_cache_dirty(nm_i, e);
 
 	/* update fsync_mark if its inode nat entry is still alive */
-	if (ni->nid != ni->ino)
-		e = __lookup_nat_cache(nm_i, ni->ino);
+	e = __lookup_nat_cache(nm_i, ni->ino);
 	if (e) {
 		if (fsync_done && ni->nid == ni->ino)
 			set_nat_flag(e, HAS_FSYNCED_INODE, true);
@@ -328,11 +324,11 @@ static void set_node_addr(struct f2fs_sb_info *sbi, struct node_info *ni,
 int try_to_free_nats(struct f2fs_sb_info *sbi, int nr_shrink)
 {
 	struct f2fs_nm_info *nm_i = NM_I(sbi);
-	int nr = nr_shrink;
 
-	if (!down_write_trylock(&nm_i->nat_tree_lock))
+	if (available_free_memory(sbi, NAT_ENTRIES))
 		return 0;
 
+	down_write(&nm_i->nat_tree_lock);
 	while (nr_shrink && !list_empty(&nm_i->nat_entries)) {
 		struct nat_entry *ne;
 		ne = list_first_entry(&nm_i->nat_entries,
@@ -341,7 +337,7 @@ int try_to_free_nats(struct f2fs_sb_info *sbi, int nr_shrink)
 		nr_shrink--;
 	}
 	up_write(&nm_i->nat_tree_lock);
-	return nr - nr_shrink;
+	return nr_shrink;
 }
 
 /*
@@ -991,24 +987,23 @@ fail:
 /*
  * Caller should do after getting the following values.
  * 0: f2fs_put_page(page, 0)
- * LOCKED_PAGE or error: f2fs_put_page(page, 1)
+ * LOCKED_PAGE: f2fs_put_page(page, 1)
+ * error: nothing
  */
 static int read_node_page(struct page *page, int rw)
 {
 	struct f2fs_sb_info *sbi = F2FS_P_SB(page);
 	struct node_info ni;
 	struct f2fs_io_info fio = {
-		.sbi = sbi,
 		.type = NODE,
 		.rw = rw,
-		.page = page,
-		.encrypted_page = NULL,
 	};
 
 	get_node_info(sbi, page->index, &ni);
 
 	if (unlikely(ni.blk_addr == NULL_ADDR)) {
 		ClearPageUptodate(page);
+		f2fs_put_page(page, 1);
 		return -ENOENT;
 	}
 
@@ -1016,7 +1011,7 @@ static int read_node_page(struct page *page, int rw)
 		return LOCKED_PAGE;
 
 	fio.blk_addr = ni.blk_addr;
-	return f2fs_submit_page_bio(&fio);
+	return f2fs_submit_page_bio(sbi, page, &fio);
 }
 
 /*
@@ -1039,7 +1034,10 @@ void ra_node_page(struct f2fs_sb_info *sbi, nid_t nid)
 		return;
 
 	err = read_node_page(apage, READA);
-	f2fs_put_page(apage, err ? 1 : 0);
+	if (err == 0)
+		f2fs_put_page(apage, 0);
+	else if (err == LOCKED_PAGE)
+		f2fs_put_page(apage, 1);
 }
 
 struct page *get_node_page(struct f2fs_sb_info *sbi, pgoff_t nid)
@@ -1052,12 +1050,10 @@ repeat:
 		return ERR_PTR(-ENOMEM);
 
 	err = read_node_page(page, READ_SYNC);
-	if (err < 0) {
-		f2fs_put_page(page, 1);
+	if (err < 0)
 		return ERR_PTR(err);
-	} else if (err != LOCKED_PAGE) {
+	else if (err != LOCKED_PAGE)
 		lock_page(page);
-	}
 
 	if (unlikely(!PageUptodate(page) || nid != nid_of_node(page))) {
 		ClearPageUptodate(page);
@@ -1094,12 +1090,10 @@ repeat:
 		return ERR_PTR(-ENOMEM);
 
 	err = read_node_page(page, READ_SYNC);
-	if (err < 0) {
-		f2fs_put_page(page, 1);
+	if (err < 0)
 		return ERR_PTR(err);
-	} else if (err == LOCKED_PAGE) {
+	else if (err == LOCKED_PAGE)
 		goto page_hit;
-	}
 
 	blk_start_plug(&plug);
 
@@ -1212,9 +1206,13 @@ continue_unlock:
 			/* called by fsync() */
 			if (ino && IS_DNODE(page)) {
 				set_fsync_mark(page, 1);
-				if (IS_INODE(page))
-					set_dentry_mark(page,
-						need_dentry_mark(sbi, ino));
+				if (IS_INODE(page)) {
+					if (!is_checkpointed_node(sbi, ino) &&
+						!has_fsynced_inode(sbi, ino))
+						set_dentry_mark(page, 1);
+					else
+						set_dentry_mark(page, 0);
+				}
 				nwritten++;
 			} else {
 				set_fsync_mark(page, 0);
@@ -1297,11 +1295,8 @@ static int f2fs_write_node_page(struct page *page,
 	nid_t nid;
 	struct node_info ni;
 	struct f2fs_io_info fio = {
-		.sbi = sbi,
 		.type = NODE,
 		.rw = (wbc->sync_mode == WB_SYNC_ALL) ? WRITE_SYNC : WRITE,
-		.page = page,
-		.encrypted_page = NULL,
 	};
 
 	trace_f2fs_writepage(page, NODE);
@@ -1336,7 +1331,7 @@ static int f2fs_write_node_page(struct page *page,
 
 	set_page_writeback(page);
 	fio.blk_addr = ni.blk_addr;
-	write_node_page(nid, &fio);
+	write_node_page(sbi, page, nid, &fio);
 	set_node_addr(sbi, &ni, fio.blk_addr, is_fsync_dnode(page));
 	dec_page_count(sbi, F2FS_DIRTY_NODES);
 	up_read(&sbi->node_write);
@@ -1534,7 +1529,7 @@ static void build_free_nids(struct f2fs_sb_info *sbi)
 		if (unlikely(nid >= nm_i->max_nid))
 			nid = 0;
 
-		if (++i >= FREE_NID_PAGES)
+		if (i++ == FREE_NID_PAGES)
 			break;
 	}
 
@@ -1635,34 +1630,6 @@ void alloc_nid_failed(struct f2fs_sb_info *sbi, nid_t nid)
 
 	if (need_free)
 		kmem_cache_free(free_nid_slab, i);
-}
-
-int try_to_free_nids(struct f2fs_sb_info *sbi, int nr_shrink)
-{
-	struct f2fs_nm_info *nm_i = NM_I(sbi);
-	struct free_nid *i, *next;
-	int nr = nr_shrink;
-
-	if (!mutex_trylock(&nm_i->build_lock))
-		return 0;
-
-	spin_lock(&nm_i->free_nid_list_lock);
-	list_for_each_entry_safe(i, next, &nm_i->free_nid_list, list) {
-		if (nr_shrink <= 0 || nm_i->fcnt <= NAT_ENTRY_PER_BLOCK)
-			break;
-		if (i->state == NID_ALLOC)
-			continue;
-		__del_from_free_nid_list(nm_i, i);
-		nm_i->fcnt--;
-		spin_unlock(&nm_i->free_nid_list_lock);
-		kmem_cache_free(free_nid_slab, i);
-		nr_shrink--;
-		spin_lock(&nm_i->free_nid_list_lock);
-	}
-	spin_unlock(&nm_i->free_nid_list_lock);
-	mutex_unlock(&nm_i->build_lock);
-
-	return nr - nr_shrink;
 }
 
 void recover_inline_xattr(struct inode *inode, struct page *page)

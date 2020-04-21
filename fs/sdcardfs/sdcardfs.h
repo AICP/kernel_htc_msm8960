@@ -50,6 +50,7 @@
 /* the file system name */
 #define SDCARDFS_NAME "sdcardfs"
 
+#define MODULE_ALIAS_FS(NAME) MODULE_ALIAS("fs-" NAME)
 /* sdcardfs root inode number */
 #define SDCARDFS_ROOT_INO     1
 

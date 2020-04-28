@@ -11,9 +11,8 @@ config MACH_T6_UL
 
 config MACH_T6_DWG
     depends on ARCH_APQ8064
-	select MACH_HTC
+    select MACH_HTC
     bool "APQ8064 T6_DWG"
-	bool "HTC One"
     help
       Support for the HTC APQ8064 T6_DWG.    
 

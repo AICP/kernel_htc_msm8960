@@ -434,9 +434,6 @@ resizefs_out:
 			return -EFAULT;
 
 		return 0;
-#else
-		return -EOPNOTSUPP;
-#endif
 	}
 
 	default:
